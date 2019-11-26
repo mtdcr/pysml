@@ -28,6 +28,7 @@ setup(
     ],
     install_requires=[
         'async-timeout>=3.0.1',
+        'bitstring>=3.1.5',
         'pyserial-asyncio>=0.4',
     ],
 )
