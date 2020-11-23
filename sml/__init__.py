@@ -230,7 +230,7 @@ class SmlListEntry(SmlSequence):
         if name == b'\x01\x00\x00\x00\x09\xff' and \
            isinstance(value, bytes) and len(value) > 0:
             if value[0] == 9 and len(value) == 10:
-                self['value'] = '%X %s%02X %d' % (
+                self['value'] = '%X %s %02X %d' % (
                     value[1], value[2:5].decode('latin1'), value[5],
                     int.from_bytes(value[6:], byteorder='big')
                 )
