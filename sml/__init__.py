@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019 Andreas Oberritter
+# Copyright (c) 2020 Andreas Oberritter
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -227,9 +227,9 @@ class SmlListEntry(SmlSequence):
             del self['scaler']
 
         # Electricity ID
-        if name == b'\x01\x00\x00\x00\x09\xff' and \
+        if name in (b'\x01\x00\x00\x00\x09\xff', b'\x01\x00\x60\x01\x00\xff') and \
            isinstance(value, bytes) and len(value) > 0:
-            if value[0] == 9 and len(value) == 10:
+            if value[0] in (9, 10) and len(value) == 10:
                 self['value'] = '%X %s %02X %d' % (
                     value[1], value[2:5].decode('latin1'), value[5],
                     int.from_bytes(value[6:], byteorder='big')
