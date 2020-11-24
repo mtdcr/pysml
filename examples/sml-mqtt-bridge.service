@@ -1,0 +1,17 @@
+[Unit]
+Description=SML-MQTT-Bridge
+After=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/sml-mqtt-bridge.py --hass
+Restart=on-failure
+RestartSec=5s
+DynamicUser=yes
+StateDirectory=sml-mqtt-bridge
+DevicePolicy=closed
+DeviceAllow=char-ttyUSB
+SupplementaryGroups=dialout
+
+[Install]
+WantedBy=multi-user.target
