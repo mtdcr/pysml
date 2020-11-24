@@ -226,6 +226,32 @@ class SmlMqttBridge(MqttBridge):
         # D=7: Instantaneous value
         # E=0: Total
         "1-0:16.7.0*255": "Sum active instantaneous power",
+        # C=31: Active amperage L1
+        # D=7: Instantaneous value
+        # E=0: Total
+        "1-0:31.7.0*255": "L1 active instantaneous amperage",
+        # C=36: Active power L1
+        # D=7: Instantaneous value
+        # E=0: Total
+        "1-0:36.7.0*255": "L1 active instantaneous power",
+        # C=51: Active amperage L2
+        # D=7: Instantaneous value
+        # E=0: Total
+        "1-0:51.7.0*255": "L2 active instantaneous amperage",
+        # C=56: Active power L2
+        # D=7: Instantaneous value
+        # E=0: Total
+        "1-0:56.7.0*255": "L2 active instantaneous power",
+        # C=71: Active amperage L3
+        # D=7: Instantaneous value
+        # E=0: Total
+        "1-0:71.7.0*255": "L3 active instantaneous amperage",
+        # C=76: Active power L3
+        # D=7: Instantaneous value
+        # E=0: Total
+        "1-0:76.7.0*255": "L3 active instantaneous power",
+        # C=96: Electricity-related service entries
+        "1-0:96.1.0*255": "Metering point ID 1",
     }
 
     def __init__(self, cfg: dict):
@@ -241,7 +267,11 @@ class SmlMqttBridge(MqttBridge):
             await self._wdt.wait_reset()
 
         # Serial number or public key
-        for obis in ["1-0:0.0.9*255", "129-129:199.130.5*255"]:
+        for obis in (
+            "1-0:0.0.9*255",
+            "1-0:96.1.0*255",
+            "129-129:199.130.5*255",
+        ):
             value = self._cache.get(obis, {}).get("value")
             if value:
                 return value
@@ -294,6 +324,10 @@ class SmlMqttBridge(MqttBridge):
         obj = self._cache.get("129-129:199.130.3*255")
         if obj and "value" in obj:
             device["manufacturer"] = obj["value"]
+        else:
+            parts = device_id.split()
+            if len(parts) == 4 and len(parts[1] == 3):
+                device["manufacturer"] = parts[1]
 
         # https://www.home-assistant.io/integrations/sensor.mqtt/
         prefix = self._cfg["hass_name"]
