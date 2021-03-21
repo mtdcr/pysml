@@ -303,7 +303,9 @@ class SmlMessage(dict):
         if tag != 7 or length != 6 or tlsize != 1:
             raise SmlParserError('Message does not start with 0x76')
 
-        values = self._read_list(length)
+        values,lastLength = self._read_list(length)
+        # the last key is the crc, but it may consume different number of bytes (if the CRC is smaller than 256 it is serialised in 1 byte only)
+        crcLength=lastLength
         for key, val in zip(self.__FIELDS, values):
             self[key] = val
 
@@ -312,7 +314,7 @@ class SmlMessage(dict):
 
         end = self._bits.pos
         msg_bytes = self._bits[start:end].bytes
-        if Crc.crc16(msg_bytes[:-4]) != self['crc16']:
+        if Crc.crc16(msg_bytes[:-(crcLength+1)]) != self['crc16']:
             raise SmlParserError('CRC16 mismatch')
 
         self['messageBody'] = SmlChoice.create(self.__CHOICES,
@@ -340,6 +342,7 @@ class SmlMessage(dict):
 
     def _read_list(self, count: int, nesting: int = 0) -> list:
         res = []
+        lastLength=0
         logger.debug("%s[*] List of %d items", nesting * ' ', count)
 
         for i in range(count):
@@ -347,7 +350,7 @@ class SmlMessage(dict):
 
             tag, length, tlsize = self._read_tag_length()
             logger.debug("%s[+] Tag: %#x, Len: %d", nesting * ' ', tag, length)
-
+            if length > 0: lastLength = length
             if tag == 0 and length == 0:
                 value = None
             elif tag == 0 and length >= tlsize:
@@ -357,7 +360,7 @@ class SmlMessage(dict):
             elif tag == 6 and length > tlsize:
                 value = self._bits.read('uintbe:%d' % ((length - tlsize) * 8))
             elif tag == 7 and length > 0:
-                value = self._read_list(length, nesting + 1)
+                value,length = self._read_list(length, nesting + 1)
             else:
                 raise SmlParserError('Unknown TL field')
 
@@ -365,7 +368,7 @@ class SmlMessage(dict):
             res.append(value)
 
         assert len(res) == count
-        return res
+        return res,lastLength
 
 
 class SmlFrame(list):
@@ -411,10 +414,12 @@ class SmlBase:
 
             frame = match.group(0)
             padding = frame[-3]
-            if padding < 4 and Crc.verify_fcs(frame):
-                obj = SmlFrame(SmlBase.__unescape(frame[8:-8-padding]))
-                return [match.end(), obj]
-
+            try:
+                if padding < 4 and Crc.verify_fcs(frame):
+                    obj = SmlFrame(SmlBase.__unescape(frame[8:-8-padding]))
+                    return [match.end(), obj]
+            except:
+                return [match.end()]
             start = match.start()
             assert match.end() > end
             end = match.end()
