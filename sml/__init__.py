@@ -27,6 +27,7 @@
 
 import logging
 import re
+from collections import namedtuple
 from typing import Generator, Optional, Tuple
 import bitstring
 
@@ -292,6 +293,8 @@ class SmlMessage(dict):
         0xff01: 'SmlAttentionResponse',
     }
 
+    ListItem = namedtuple('ListItem', ['length', 'value'])
+
     def __init__(self, bits: bitstring.ConstBitStream) -> None:
         super().__init__()
         self._bits = bits
@@ -307,16 +310,16 @@ class SmlMessage(dict):
         for key, val in zip(self.__FIELDS, values):
             self[key] = val
 
-        if self['endOfSmlMsg'] is not None:
+        if self['endOfSmlMsg'].value is not None:
             raise SmlParserError('Invalid value for endOfSmlMsg')
 
         end = self._bits.pos
         msg_bytes = self._bits[start:end].bytes
-        if Crc.crc16(msg_bytes[:-4]) != self['crc16']:
+        if Crc.crc16(msg_bytes[:-(self['crc16'].length + 1)]) != self['crc16'].value:
             raise SmlParserError('CRC16 mismatch')
 
         self['messageBody'] = SmlChoice.create(self.__CHOICES,
-                                               self['messageBody'])
+                                               self['messageBody'].value)
 
         logger.debug("[*] CONSUMED: %s", msg_bytes.hex())
         logger.debug("[*] RESULT (%d bits left): %s",
@@ -362,7 +365,7 @@ class SmlMessage(dict):
                 raise SmlParserError('Unknown TL field')
 
             logger.debug('%s[+] Value: %s', nesting * ' ', value)
-            res.append(value)
+            res.append(SmlMessage.ListItem(length, value))
 
         assert len(res) == count
         return res
