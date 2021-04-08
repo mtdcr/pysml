@@ -65,7 +65,7 @@ class SmlParserError(Exception):
 
 class SmlSequence(dict):
     def __init__(self, fields: tuple, values: list) -> None:
-        super().__init__(zip(fields, values))
+        super().__init__(zip(fields, [item.value for item in values]))
 
         for key in fields:
             if self[key] == b'':
@@ -73,24 +73,24 @@ class SmlSequence(dict):
 
 
 class SmlSequenceOf(list):
-    def __init__(self, seq_type: SmlSequence, values: list) -> None:
+    def __init__(self, seq_type: SmlSequence, items: list) -> None:
         super().__init__()
 
-        for value in values:
-            self.append(seq_type(value))
+        for item in items:
+            self.append(seq_type(item.value))
 
 
 class SmlChoice:
     @staticmethod
-    def create(choices: dict, values: list) -> SmlSequence:
-        if len(values) != 2:
+    def create(choices: dict, items: list) -> SmlSequence:
+        if len(items) != 2:
             raise SmlParserError('Invalid SML choice')
 
-        klass = choices.get(values[0])
+        klass = choices.get(items[0].value)
         if klass and klass in globals():
-            return globals()[klass](values[1])
+            return globals()[klass](items[1].value)
 
-        return values
+        return items
 
 
 class SmlUnit(str):
