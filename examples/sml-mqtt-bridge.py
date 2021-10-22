@@ -349,8 +349,12 @@ class SmlMqttBridge(MqttBridge):
                 config["unit_of_measurement"] = unit
                 if unit == "W":
                     config["device_class"] = "power"
+                    config["state_class"] = "measurement"
                 elif unit == "Wh":
                     config["device_class"] = "energy"
+                    config["last_reset_topic"] = config["state_topic"]
+                    config["last_reset_value_template"] = "1970-01-01T00:00:00+00:00"
+                    config["state_class"] = "total_increasing"
 
             topic = self._hass_topic("sensor", object_id)
             await self._publish(mqtt, topic, config, retain=True)
