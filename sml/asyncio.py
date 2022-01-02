@@ -104,7 +104,7 @@ class SmlProtocol(SmlBase, asyncio.Protocol):
             await self._disconnect()
             await asyncio.sleep(delay, loop=self._loop)
             try:
-                async with timeout(5, loop=self._loop):
+                async with timeout(5):
                     self._transport, _ = await self._create_connection()
             except (BrokenPipeError, ConnectionRefusedError,
                     SerialException, asyncio.TimeoutError) as exc:
