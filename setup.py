@@ -27,8 +27,8 @@ setup(
         'Topic :: Software Development :: Libraries :: Python Modules',
     ],
     install_requires=[
-        'async-timeout~=4.0',
-        'bitstring~=3.1',
-        'pyserial-asyncio~=0.6',
+        'async-timeout>=4.0',
+        'bitstring>=3.1',
+        'pyserial-asyncio>=0.6',
     ],
 )
