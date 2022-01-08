@@ -7,7 +7,7 @@ with open("README.md", "r") as fh:
 
 setup(
     name='pysml',
-    version='0.0.5',
+    version='0.0.6',
     author='Andreas Oberritter',
     author_email='obi@saftware.de',
     url='https://github.com/mtdcr/pysml',
