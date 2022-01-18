@@ -139,6 +139,7 @@ class SmlProtocol(SmlBase, asyncio.Protocol):
 
     async def _timeout(self):
         timeout_delay = 120
+        self._LAST_UPDATE = time.time() + timeout_delay
         while True:
             await asyncio.sleep(30)
             ts = time.time()
