@@ -45,7 +45,7 @@ class SmlProtocol(SmlBase, asyncio.Protocol):
         self._running = False
         self._buf = b''
         self._lock = None
-        self._last_update = time.time()
+        self._last_update = 0
         self._timeout_delay = wait_time
         self._watchdog = None
 
@@ -118,6 +118,7 @@ class SmlProtocol(SmlBase, asyncio.Protocol):
             else:
                 logger.info('Connected to %s', self._url.geturl())
                 if self._timeout_delay:
+                    self._last_update = time.time()
                     self._watchdog = asyncio.create_task(self._timeout())
 
     async def connect(self, loop=None):
@@ -141,12 +142,17 @@ class SmlProtocol(SmlBase, asyncio.Protocol):
 
     async def _timeout(self):
         while True:
-            await asyncio.sleep(self._timeout_delay)
-            ts = time.time()
-            if ts >= self._last_update + self._timeout_delay:
-                logger.warning("Timeout while waiting for meter data. Please check reading device. Restarting edl21")
-                self.connection_lost(TimeoutError())
-                return
+            last_update = self._last_update
+            sleep_time = last_update + self._timeout_delay - time.time()
+            if sleep_time > 0:
+                await asyncio.sleep(sleep_time)
+                if last_update != self._last_update:
+                    continue
+            logger.warning(
+                'Timeout while waiting for meter data. Please check reading device. Restarting edl21'
+            )
+            self.connection_lost(TimeoutError())
+            return
 
     def add_listener(self, listener, types: list):
         self._listeners.append((listener, types))
