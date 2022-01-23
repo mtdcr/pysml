@@ -1,0 +1,25 @@
+[tool.poetry]
+name = "pysml"
+version = "0.0.7"
+description = "Python library for EDL21 smart meters using Smart Message Language (SML)"
+authors = ["Andreas Oberritter <obi@saftware.de>"]
+license = "MIT"
+readme = "README.md"
+packages = [
+    { include = "sml" },
+    { include = "sml-mqtt-bridge.py", from = "examples" },
+    { include = "sml-mqtt-bridge.service", from = "examples" },
+    { include = "test_asyncio.py", from = "examples" },
+]
+
+[tool.poetry.dependencies]
+python = "^3.7"
+async-timeout = ">=4.0"
+bitstring = ">=3.1"
+pyserial-asyncio = ">=0.6"
+
+[tool.poetry.dev-dependencies]
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
