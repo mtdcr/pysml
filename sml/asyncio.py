@@ -35,9 +35,8 @@ logger.addHandler(logging.NullHandler())
 
 class SmlProtocol(SmlBase, asyncio.Protocol):
     _BAUD_RATE = 9600
-    _LAST_UPDATE = 0
 
-    def __init__(self, url):
+    def __init__(self, url, wait_time=120):
         super().__init__()
         self._url = urlparse(url)
         self._transport = None
@@ -46,6 +45,8 @@ class SmlProtocol(SmlBase, asyncio.Protocol):
         self._running = False
         self._buf = b''
         self._lock = None
+        self._last_update = time.time()
+        self._timeout_delay = wait_time
         self._watchdog = None
 
     async def _resume_reading(self, delay):
@@ -59,7 +60,7 @@ class SmlProtocol(SmlBase, asyncio.Protocol):
     def data_received(self, data: bytes):
         self._buf += data
         delay = 0.5
-        self._LAST_UPDATE = time.time()
+        self._last_update = time.time()
 
         while True:
             res = self.parse_frame(self._buf)
@@ -116,7 +117,8 @@ class SmlProtocol(SmlBase, asyncio.Protocol):
                 asyncio.ensure_future(self._reconnect(), loop=self._loop)
             else:
                 logger.info('Connected to %s', self._url.geturl())
-                self._watchdog = asyncio.create_task(self._timeout())
+                if self._timeout_delay:
+                    self._watchdog = asyncio.create_task(self._timeout())
 
     async def connect(self, loop=None):
         if self._running:
@@ -138,12 +140,10 @@ class SmlProtocol(SmlBase, asyncio.Protocol):
             self._transport = None
 
     async def _timeout(self):
-        timeout_delay = 120
-        self._LAST_UPDATE = time.time() + timeout_delay
         while True:
-            await asyncio.sleep(30)
+            await asyncio.sleep(self._timeout_delay)
             ts = time.time()
-            if ts >= self._LAST_UPDATE + timeout_delay:
+            if ts >= self._last_update + self._timeout_delay:
                 logger.warning("Timeout while waiting for meter data. Please check reading device. Restarting edl21")
                 self.connection_lost(TimeoutError())
                 return
