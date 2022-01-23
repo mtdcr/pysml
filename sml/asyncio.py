@@ -22,6 +22,7 @@
 
 import asyncio
 import logging
+import time
 from urllib.parse import urlparse
 from async_timeout import timeout
 from serial import SerialException
@@ -35,7 +36,7 @@ logger.addHandler(logging.NullHandler())
 class SmlProtocol(SmlBase, asyncio.Protocol):
     _BAUD_RATE = 9600
 
-    def __init__(self, url):
+    def __init__(self, url, wait_time=120):
         super().__init__()
         self._url = urlparse(url)
         self._transport = None
@@ -44,6 +45,9 @@ class SmlProtocol(SmlBase, asyncio.Protocol):
         self._running = False
         self._buf = b''
         self._lock = None
+        self._last_update = 0
+        self._timeout_delay = wait_time
+        self._watchdog = None
 
     async def _resume_reading(self, delay):
         await asyncio.sleep(delay, loop=self._loop)
@@ -56,6 +60,7 @@ class SmlProtocol(SmlBase, asyncio.Protocol):
     def data_received(self, data: bytes):
         self._buf += data
         delay = 0.5
+        self._last_update = time.time()
 
         while True:
             res = self.parse_frame(self._buf)
@@ -112,6 +117,9 @@ class SmlProtocol(SmlBase, asyncio.Protocol):
                 asyncio.ensure_future(self._reconnect(), loop=self._loop)
             else:
                 logger.info('Connected to %s', self._url.geturl())
+                if self._timeout_delay:
+                    self._last_update = time.time()
+                    self._watchdog = asyncio.create_task(self._timeout())
 
     async def connect(self, loop=None):
         if self._running:
@@ -126,9 +134,25 @@ class SmlProtocol(SmlBase, asyncio.Protocol):
         await self._reconnect(delay=0)
 
     async def _disconnect(self):
+        if self._watchdog and not self._watchdog.done():
+            self._watchdog.cancel()
         if self._transport:
             self._transport.abort()
             self._transport = None
+
+    async def _timeout(self):
+        while True:
+            last_update = self._last_update
+            sleep_time = last_update + self._timeout_delay - time.time()
+            if sleep_time > 0:
+                await asyncio.sleep(sleep_time)
+                if last_update != self._last_update:
+                    continue
+            logger.warning(
+                'Timeout while waiting for meter data. Please check reading device. Restarting edl21'
+            )
+            self.connection_lost(TimeoutError())
+            return
 
     def add_listener(self, listener, types: list):
         self._listeners.append((listener, types))
