@@ -50,7 +50,7 @@ class SmlProtocol(SmlBase, asyncio.Protocol):
         self._watchdog = None
 
     async def _resume_reading(self, delay):
-        await asyncio.sleep(delay, loop=self._loop)
+        await asyncio.sleep(delay)
         self._transport.resume_reading()
 
     def _delay_reading(self, delay):
@@ -107,7 +107,7 @@ class SmlProtocol(SmlBase, asyncio.Protocol):
     async def _reconnect(self, delay: int = 10):
         async with self._lock:
             await self._disconnect()
-            await asyncio.sleep(delay, loop=self._loop)
+            await asyncio.sleep(delay)
             try:
                 async with timeout(5):
                     self._transport, _ = await self._create_connection()
@@ -129,7 +129,7 @@ class SmlProtocol(SmlBase, asyncio.Protocol):
             loop = asyncio.get_event_loop()
 
         self._loop = loop
-        self._lock = asyncio.Lock(loop=loop)
+        self._lock = asyncio.Lock()
         self._running = True
         await self._reconnect(delay=0)
 
