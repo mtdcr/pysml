@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pysml"
-version = "0.0.7"
+version = "0.0.8"
 description = "Python library for EDL21 smart meters using Smart Message Language (SML)"
 authors = ["Andreas Oberritter <obi@saftware.de>"]
 license = "MIT"
