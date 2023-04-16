@@ -414,7 +414,7 @@ class SmlBase:
 
             frame = match.group(0)
             padding = frame[-3]
-            if padding < 4 and Crc.verify_fcs(frame):
+            if padding <= 4 and Crc.verify_fcs(frame):
                 obj = SmlFrame(SmlBase.__unescape(frame[8:-8-padding]))
                 return [match.end(), obj]
 
