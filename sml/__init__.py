@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021 Andreas Oberritter
+# Copyright (c) 2023 Andreas Oberritter
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -75,9 +75,29 @@ class SmlSequence(dict):
 class SmlSequenceOf(list):
     def __init__(self, seq_type: SmlSequence, items: list) -> None:
         super().__init__()
+        dzg_workaround = False
 
         for item in items:
-            self.append(seq_type(item.value))
+            obj = seq_type(item.value)
+            name = obj.get("objName")
+            value = obj.get("value")
+
+            # Slightly unsafe workaround for DZG meters incorrectly transmitting
+            # some positive values as signed integers with MSB set.
+            # https://github.com/jmberg/libsml/commit/81c4026e3d94f7a384cdd89f62a727b83269cdec
+            if name and value:
+                if name == "1-0:96.1.0*255" and value.startswith("1 DZG 00 "):
+                    dzg_workaround = True
+                elif dzg_workaround and name == "1-0:16.7.0*255" and value < 0 and len(item.value) >= 6:
+                    bits = item.value[5].bits
+                    if len(bits) in (8, 16, 24):
+                        obj["value"] = bits.uintbe
+                        obj.scale_value()
+
+            if "scaler" in obj:
+                del obj["scaler"]
+
+            self.append(obj)
 
 
 class SmlChoice:
@@ -217,15 +237,8 @@ class SmlListEntry(SmlSequence):
         if unit:
             self['unit'] = SmlUnit.create(unit)
 
-        scaler = self.get('scaler')
-        value = self.get('value')
-        if scaler and value:
-            if scaler < 0:
-                self['value'] = value / 10 ** abs(scaler)
-            else:
-                self['value'] = value * 10 ** scaler
-        if scaler is not None:
-            del self['scaler']
+        self.scale_value()
+        value = self["value"]
 
         # Electricity ID
         if name in (b'\x01\x00\x00\x00\x09\xff', b'\x01\x00\x60\x01\x00\xff') and \
@@ -247,6 +260,15 @@ class SmlListEntry(SmlSequence):
         elif name == b'\x81\x81\xc7\x82\x05\xff' and \
              isinstance(value, bytes):
             self['value'] = self['value'].hex()
+
+    def scale_value(self):
+        scaler = self.get('scaler')
+        value = self.get('value')
+        if scaler and value:
+            if scaler < 0:
+                self['value'] = value / 10 ** abs(scaler)
+            else:
+                self['value'] = value * 10 ** scaler
 
 
 class SmlGetListResponse(SmlSequence):
@@ -293,7 +315,7 @@ class SmlMessage(dict):
         0xff01: 'SmlAttentionResponse',
     }
 
-    ListItem = namedtuple('ListItem', ['length', 'value'])
+    ListItem = namedtuple('ListItem', ['length', 'value', 'bits'])
 
     def __init__(self, bits: bitstring.ConstBitStream) -> None:
         super().__init__()
@@ -351,21 +373,26 @@ class SmlMessage(dict):
             tag, length, tlsize = self._read_tag_length()
             logger.debug("%s[+] Tag: %#x, Len: %d", nesting * ' ', tag, length)
 
+            if tag in (0, 5, 6) and length >= tlsize:
+                bits = self._bits.read('bits:%d' % ((length - tlsize) * 8))
+            else:
+                bits = None
+
             if tag == 0 and length == 0:
                 value = None
             elif tag == 0 and length >= tlsize:
-                value = self._bits.read('bytes:%d' % (length - tlsize))
+                value = bits.bytes
             elif tag == 5 and length > tlsize:
-                value = self._bits.read('intbe:%d' % ((length - tlsize) * 8))
+                value = bits.intbe
             elif tag == 6 and length > tlsize:
-                value = self._bits.read('uintbe:%d' % ((length - tlsize) * 8))
+                value = bits.uintbe
             elif tag == 7 and length > 0:
                 value = self._read_list(length, nesting + 1)
             else:
                 raise SmlParserError('Unknown TL field')
 
             logger.debug('%s[+] Value: %s', nesting * ' ', value)
-            res.append(SmlMessage.ListItem(length, value))
+            res.append(SmlMessage.ListItem(length, value, bits))
 
         assert len(res) == count
         return res
