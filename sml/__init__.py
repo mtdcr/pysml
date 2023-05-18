@@ -71,6 +71,18 @@ class SmlSequence(dict):
             if self[key] == b'':
                 del self[key]
 
+    @staticmethod
+    def decode_server_id(value: bytes) -> str:
+        if value[0] in (9, 10) and len(value) == 10:
+            result = '%X %s %02X %d' % (
+                value[1], value[2:5].decode('latin1'), value[5],
+                int.from_bytes(value[6:], byteorder='big')
+            )
+        else:
+            result = '-'.join(['%02X' % x for x in value])
+
+        return result
+
 
 class SmlSequenceOf(list):
     def __init__(self, seq_type: SmlSequence, items: list) -> None:
@@ -208,6 +220,7 @@ class SmlOpenResponse(SmlSequence):
 
     def __init__(self, values: list) -> None:
         super().__init__(self.__FIELDS, values)
+        self['serverId'] = self.decode_server_id(self['serverId'])
 
 
 class SmlCloseResponse(SmlSequence):
@@ -249,13 +262,7 @@ class SmlListEntry(SmlSequence):
         # Electricity ID
         if name in (b'\x01\x00\x00\x00\x09\xff', b'\x01\x00\x60\x01\x00\xff') and \
            isinstance(value, bytes) and len(value) > 0:
-            if value[0] in (9, 10) and len(value) == 10:
-                self['value'] = '%X %s %02X %d' % (
-                    value[1], value[2:5].decode('latin1'), value[5],
-                    int.from_bytes(value[6:], byteorder='big')
-                )
-            else:
-                self['value'] = '-'.join(['%02X' % x for x in value])
+            self['value'] = self.decode_server_id(self['value'])
 
         # Manufacturer ID
         elif name == b'\x81\x81\xc7\x82\x03\xff' and \
@@ -290,6 +297,7 @@ class SmlGetListResponse(SmlSequence):
 
     def __init__(self, values: list) -> None:
         super().__init__(self.__FIELDS, values)
+        self['serverId'] = self.decode_server_id(self['serverId'])
         self['valList'] = SmlSequenceOf(SmlListEntry, self['valList'])
 
 
