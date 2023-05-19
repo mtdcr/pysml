@@ -210,12 +210,12 @@ class SmlUnit(str):
 
 class SmlOpenResponse(SmlSequence):
     __FIELDS = (
-        'codepage',
-        'clientId',
+        'codepage',  # optional
+        'clientId',  # optional
         'reqFileId',
         'serverId',
-        'refTime',
-        'smlVersion',
+        'refTime',  # optional
+        'smlVersion',  # optional
     )
 
     def __init__(self, values: list) -> None:
@@ -225,7 +225,7 @@ class SmlOpenResponse(SmlSequence):
 
 class SmlCloseResponse(SmlSequence):
     __FIELDS = (
-        'globalSignature',
+        'globalSignature',  # optional
     )
 
     def __init__(self, values: list) -> None:
@@ -235,12 +235,12 @@ class SmlCloseResponse(SmlSequence):
 class SmlListEntry(SmlSequence):
     __FIELDS = (
         'objName',
-        'status',
-        'valTime',
-        'unit',
-        'scaler',
+        'status',  # optional
+        'valTime',  # optional
+        'unit',  # optional
+        'scaler',  # optional
         'value',
-        'valueSignature',
+        'valueSignature',  # optional
     )
 
     def __init__(self, values: list) -> None:
@@ -286,13 +286,13 @@ class SmlListEntry(SmlSequence):
 
 class SmlGetListResponse(SmlSequence):
     __FIELDS = (
-        'clientId',
+        'clientId',  # optional
         'serverId',
-        'listName',
-        'actSensorTime',
+        'listName',  # optional
+        'actSensorTime',  # optional
         'valList',
-        'listSignature',
-        'actGatewayTime',
+        'listSignature',  # optional
+        'actGatewayTime',  # optional
     )
 
     def __init__(self, values: list) -> None:
