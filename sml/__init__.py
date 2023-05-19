@@ -73,6 +73,12 @@ class SmlSequence(dict):
                 del self[key]
 
     @staticmethod
+    def decode_obis(value: bytes) -> str:
+        return '%d-%d:%d.%d.%d*%d' % (
+            value[0], value[1], value[2], value[3], value[4], value[5]
+        )
+
+    @staticmethod
     def decode_server_id(value: bytes) -> str:
         if value[0] in (9, 10) and len(value) == 10:
             serial = int.from_bytes(value[6:], byteorder='big')
@@ -273,9 +279,7 @@ class SmlListEntry(SmlSequence):
 
         name = self.get('objName')
         if name and len(name) == 6:
-            self['objName'] = '%d-%d:%d.%d.%d*%d' % (
-                name[0], name[1], name[2], name[3], name[4], name[5]
-            )
+            self['objName'] = self.decode_obis(self['objName'])
 
         unit = self.get('unit')
         if unit:
