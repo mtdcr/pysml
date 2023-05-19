@@ -74,9 +74,10 @@ class SmlSequence(dict):
     @staticmethod
     def decode_server_id(value: bytes) -> str:
         if value[0] in (9, 10) and len(value) == 10:
-            result = '%X %s %02X %d' % (
+            serial = int.from_bytes(value[6:], byteorder='big')
+            result = '%X %s%02X %04d %04d' % (
                 value[1], value[2:5].decode('latin1'), value[5],
-                int.from_bytes(value[6:], byteorder='big')
+                serial // 10000, serial % 10000
             )
         else:
             result = '-'.join(['%02X' % x for x in value])
@@ -98,14 +99,14 @@ class SmlSequenceOf(list):
             # some positive values as signed integers with MSB set.
             # https://github.com/jmberg/libsml/commit/81c4026e3d94f7a384cdd89f62a727b83269cdec
             if name and value:
-                if name == "1-0:96.1.0*255" and value.startswith("1 DZG 00 "):
+                if name == "1-0:96.1.0*255" and value.startswith("1 DZG00 "):
                     # Apply the workaround to electricity IDs < 60000000 only.
                     # This value is just a wild guess though, based on serial
                     # numbers of "G2" devices published by users.
                     # G2 devices use a different MCU, so they're likely running
                     # different firmware, and thus there's a good chance all
                     # earlier devices have this bug while all G2 devices don't.
-                    dzg_workaround = int(value[9:]) < 60000000
+                    dzg_workaround = int(value[8:12]) < 6000
                 elif dzg_workaround and name == "1-0:16.7.0*255" and value < 0 and len(item.value) >= 6:
                     bits = item.value[5].bits
                     if len(bits) in (8, 16, 24):
