@@ -28,6 +28,7 @@
 import logging
 import re
 from collections import namedtuple
+from datetime import datetime, timezone
 from typing import Generator, Optional, Tuple
 import bitstring
 
@@ -132,6 +133,27 @@ class SmlChoice:
         return items
 
 
+class SmlTime:
+    @classmethod
+    def create(cls, items: list):
+        if len(items) != 2:
+            raise SmlParserError('Invalid SML time')
+
+        choice = items[0].value
+        time = items[1].value
+
+        if choice == 1 and isinstance(time, int):
+            return time
+        if choice == 2 and isinstance(time, int):
+            return datetime.fromtimestamp(time, timezone.utc)
+
+        # TODO: Need example payload for choice == 3 (SML_TimestampLocal)
+        #if choice == 3 and isinstance(time, list) and len(time) == 3 and isinstance(time[0], SmlMessage.ListItem):
+        #    return datetime.fromtimestamp(time[0].value, timezone.utc)
+
+        return items
+
+
 class SmlUnit(str):
     __UNITS = {
         1: 'a',
@@ -222,6 +244,8 @@ class SmlOpenResponse(SmlSequence):
     def __init__(self, values: list) -> None:
         super().__init__(self.__FIELDS, values)
         self['serverId'] = self.decode_server_id(self['serverId'])
+        if 'refTime' in self:
+            self['refTime'] = SmlTime.create(self['refTime'])
 
 
 class SmlCloseResponse(SmlSequence):
@@ -299,7 +323,12 @@ class SmlGetListResponse(SmlSequence):
     def __init__(self, values: list) -> None:
         super().__init__(self.__FIELDS, values)
         self['serverId'] = self.decode_server_id(self['serverId'])
+        if 'actSensorTime' in self:
+            self['actSensorTime'] = SmlTime.create(self['actSensorTime'])
         self['valList'] = SmlSequenceOf(SmlListEntry, self['valList'])
+        if 'actGatewayTime' in self:
+            self['actGatewayTime'] = SmlTime.create(self['actGatewayTime'])
+
 
 
 class SmlMessage(dict):
