@@ -353,7 +353,6 @@ class SmlMessage(dict):
         0x0500: 'SmlGetProcParameterRequest',
         0x0501: 'SmlGetProcParameterResponse',
         0x0600: 'SmlSetProcParameterRequest',
-        0x0601: 'SmlSetProcParameterResponse',
         0x0700: 'SmlGetListRequest',
         0x0701: 'SmlGetListResponse',
         0xff01: 'SmlAttentionResponse',
