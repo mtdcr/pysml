@@ -20,15 +20,17 @@
 # THE SOFTWARE.
 #
 
-import aiohttp
 import asyncio
 import logging
 import time
 from typing import Optional
 from urllib.parse import urlparse
+
+import aiohttp
 from async_timeout import timeout
 from serial import SerialException
 from serial_asyncio import create_serial_connection
+
 from . import SmlBase, SmlSequence
 
 logger = logging.getLogger(__name__)
