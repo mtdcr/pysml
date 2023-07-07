@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019 Andreas Oberritter
+# Copyright (c) 2023 Andreas Oberritter
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -20,6 +20,7 @@
 # THE SOFTWARE.
 #
 
+import aiohttp
 import asyncio
 import logging
 import time
@@ -33,14 +34,15 @@ logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
 
-class SmlProtocol(SmlBase, asyncio.Protocol):
+class SmlSerialProtocol(SmlBase, asyncio.Protocol):
     _BAUD_RATE = 9600
 
-    def __init__(self, url, wait_time=120):
-        super().__init__()
+    def __init__(self, url, dispatch, wait_time=120):
+        SmlBase.__init__(self)
+        asyncio.Protocol.__init__(self)
+        self._dispatch = dispatch
         self._url = urlparse(url)
         self._transport = None
-        self._listeners = []
         self._loop = None
         self._running = False
         self._buf = b''
@@ -84,11 +86,6 @@ class SmlProtocol(SmlBase, asyncio.Protocol):
         self._transport = None
         if self._running and not self._lock.locked():
             asyncio.ensure_future(self._reconnect(), loop=self._loop)
-
-    def _dispatch(self, message_body: SmlSequence):
-        for listener, types in self._listeners:
-            if not types or type(message_body).__name__ in types:
-                listener(message_body)
 
     async def _create_connection(self):
         if self._url.scheme == 'socket':
@@ -155,8 +152,56 @@ class SmlProtocol(SmlBase, asyncio.Protocol):
             self.connection_lost(TimeoutError())
             return
 
+
+class SmlHttpProtocol(SmlBase):
+    def __init__(self, url, dispatch, poll_interval=2):
+        super().__init__()
+        self._dispatch = dispatch
+        self._url = url
+        self._poll_interval = poll_interval
+        self._task = None
+
+    async def _poll(self):
+        async with aiohttp.ClientSession(trust_env=True) as session:
+            while not self._task.done():
+                async with session.get(self._url) as resp:
+                    data = await resp.read()
+
+                    res = self.parse_frame(data)
+                    end = res.pop(0)
+                    if not res:
+                        return
+
+                    for msg in res[0]:
+                        body = msg.get('messageBody')
+                        if body:
+                            self._dispatch(body)
+
+                await asyncio.sleep(self._poll_interval)
+
+    async def connect(self, loop=None):
+        self._task = asyncio.create_task(self._poll())
+
+
+class SmlProtocol:
+    def __init__(self, url, **kwargs):
+        self._listeners = []
+        self._url = urlparse(url)
+        if self._url.scheme in ('http', 'https'):
+            self._impl = SmlHttpProtocol(url, self._dispatch, **kwargs)
+        else:
+            self._impl = SmlSerialProtocol(url, self._dispatch, **kwargs)
+
+    def _dispatch(self, message_body: SmlSequence):
+        for listener, types in self._listeners:
+            if not types or type(message_body).__name__ in types:
+                listener(message_body)
+
     def add_listener(self, listener, types: list):
         self._listeners.append((listener, types))
 
     def remove_listener(self, listener, types: list):
         self._listeners.remove((listener, types))
+
+    async def connect(self, loop=None):
+        await self._impl.connect(loop)

@@ -17,6 +17,7 @@ python = "^3.7"
 async-timeout = ">=4.0"
 bitstring = ">=3.1"
 pyserial-asyncio = ">=0.6"
+aiohttp = "^3.8.4"
 
 [tool.poetry.dev-dependencies]
 
