@@ -29,7 +29,8 @@ import logging
 import re
 from collections import namedtuple
 from datetime import datetime, timezone
-from typing import Generator, Optional, Tuple
+from typing import Any, Generator, List, Optional, Tuple, Type, Union
+
 import bitstring
 
 logger = logging.getLogger(__name__)
@@ -93,42 +94,43 @@ class SmlSequence(dict):
 
 
 class SmlSequenceOf(list):
-    def __init__(self, seq_type: SmlSequence, items: list) -> None:
+    def __init__(self, seq_type: Type[SmlSequence], items: list) -> None:
         super().__init__()
         dzg_workaround = False
 
         for item in items:
             obj = seq_type(item.value)
-            name = obj.get("objName")
-            value = obj.get("value")
+            if isinstance(obj, SmlListEntry):
+                name = obj.get("objName")
+                value = obj.get("value")
 
-            # Slightly unsafe workaround for DZG meters incorrectly transmitting
-            # some positive values as signed integers with MSB set.
-            # https://github.com/jmberg/libsml/commit/81c4026e3d94f7a384cdd89f62a727b83269cdec
-            if name and value:
-                if name == "1-0:96.1.0*255" and value.startswith("1 DZG00 "):
-                    # Apply the workaround to electricity IDs < 60000000 only.
-                    # This value is just a wild guess though, based on serial
-                    # numbers of "G2" devices published by users.
-                    # G2 devices use a different MCU, so they're likely running
-                    # different firmware, and thus there's a good chance all
-                    # earlier devices have this bug while all G2 devices don't.
-                    dzg_workaround = int(value[8:12]) < 6000
-                elif dzg_workaround and name == "1-0:16.7.0*255" and value < 0 and len(item.value) >= 6:
-                    bits = item.value[5].bits
-                    if len(bits) in (8, 16, 24):
-                        obj["value"] = bits.uintbe
-                        obj.scale_value()
+                # Slightly unsafe workaround for DZG meters incorrectly transmitting
+                # some positive values as signed integers with MSB set.
+                # https://github.com/jmberg/libsml/commit/81c4026e3d94f7a384cdd89f62a727b83269cdec
+                if name and value:
+                    if name == "1-0:96.1.0*255" and value.startswith("1 DZG00 "):
+                        # Apply the workaround to electricity IDs < 60000000 only.
+                        # This value is just a wild guess though, based on serial
+                        # numbers of "G2" devices published by users.
+                        # G2 devices use a different MCU, so they're likely running
+                        # different firmware, and thus there's a good chance all
+                        # earlier devices have this bug while all G2 devices don't.
+                        dzg_workaround = int(value[8:12]) < 6000
+                    elif dzg_workaround and name == "1-0:16.7.0*255" and value < 0 and len(item.value) >= 6:
+                        bits = item.value[5].bits
+                        if len(bits) in (8, 16, 24):
+                            obj["value"] = bits.uintbe
+                            obj.scale_value()
 
-            if "scaler" in obj:
-                del obj["scaler"]
+                if "scaler" in obj:
+                    del obj["scaler"]
 
             self.append(obj)
 
 
 class SmlChoice:
     @staticmethod
-    def create(choices: dict, items: list) -> SmlSequence:
+    def create(choices: dict, items: list) -> Union[SmlSequence, List]:
         if len(items) != 2:
             raise SmlParserError('Invalid SML choice')
 
@@ -233,7 +235,7 @@ class SmlUnit(str):
     }
 
     @staticmethod
-    def create(value) -> str:
+    def create(value) -> Optional[str]:
         return SmlUnit.__UNITS.get(value)
 
 
@@ -476,7 +478,7 @@ class SmlBase:
         return buf.replace(SmlBase.__MSG_ESC * 2, SmlBase.__MSG_ESC)
 
     @staticmethod
-    def parse_frame(buf: bytes) -> Tuple[int, Optional[SmlFrame]]:
+    def parse_frame(buf: bytes) -> List[Union[int, SmlFrame]]:  # Think Union[Tuple[int, SmlFrame], Tuple[int]], but cast to List
         start = 0
         end = 0
 

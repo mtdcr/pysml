@@ -24,6 +24,7 @@ import aiohttp
 import asyncio
 import logging
 import time
+from typing import Optional
 from urllib.parse import urlparse
 from async_timeout import timeout
 from serial import SerialException
@@ -81,7 +82,7 @@ class SmlSerialProtocol(SmlBase, asyncio.Protocol):
 
         self._delay_reading(delay)
 
-    def connection_lost(self, exc: Exception):
+    def connection_lost(self, exc: Optional[Exception]):
         logger.debug('port closed')
         self._transport = None
         if self._running and not self._lock.locked():
