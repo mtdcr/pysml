@@ -478,7 +478,7 @@ class SmlBase:
         return buf.replace(SmlBase.__MSG_ESC * 2, SmlBase.__MSG_ESC)
 
     @staticmethod
-    def parse_frame(buf: bytes) -> List[Union[int, SmlFrame]]:  # Think Union[Tuple[int, SmlFrame], Tuple[int]], but cast to List
+    def find_frame(buf: bytes) -> Tuple[int, Optional[SmlFrame]]:
         start = 0
         end = 0
 
@@ -492,10 +492,23 @@ class SmlBase:
             padding = frame[-3]
             if padding <= 4 and Crc.verify_fcs(frame):
                 obj = SmlFrame(SmlBase.__unescape(frame[8:-8-padding]))
-                return [match.end(), obj]
+                return (match.end(), obj)
 
             start = match.start()
             assert match.end() > end
             end = match.end()
 
-        return [end]
+        return (end, None)
+
+    @staticmethod
+    def parse_frame(buf: bytes):
+        """
+        Provides backwards compatibility. Return type can't be
+        expressed in a useful way for type-checking. New code
+        should call find_frame() directly.
+        """
+
+        end, obj = SmlBase.find_frame(buf)
+        if obj is None:
+            return [end]
+        return [end, obj]
