@@ -96,27 +96,36 @@ class SmlSequence(dict):
 class SmlSequenceOf(list):
     def __init__(self, seq_type: Type[SmlSequence], items: list) -> None:
         super().__init__()
-        dzg_workaround = False
+        dzg_workaround = 0
 
         for item in items:
             obj = seq_type(item.value)
             if isinstance(obj, SmlListEntry):
                 name = obj.get("objName")
                 value = obj.get("value")
+                status = obj.get("status", 0)
 
-                # Slightly unsafe workaround for DZG meters incorrectly transmitting
+                # Slightly unsafe workaround for DZG DVS74 meters incorrectly transmitting
                 # some positive values as signed integers with MSB set.
                 # https://github.com/jmberg/libsml/commit/81c4026e3d94f7a384cdd89f62a727b83269cdec
+                #
+                # We can't tell apart DVS74 from other DZG devices, so we check bit 11 of the status
+                # word, which indicates the current energy direction. On +A, negative values for
+                # instantaneous active power can't be right.
+                #
+                # To avoid applying the workaround on random future devices, validate the format of
+                # the status word:
+                # - Fixed bits (0-7): Should be set to 4 for DVS74.
+                # - Load bit (8): Needs to be set for non-zero instantaneous active power.
+                # - Reserved bits (21-31): Observed to be 0 for DVS74.
+                #
+                # c.f. https://www.dzg.de/fileadmin/dzg/content/downloads/produkte-zaehler/dvs74/dzg_dvs74_product_manual.pdf
                 if name and value:
                     if name == "1-0:96.1.0*255" and value.startswith("1 DZG00 "):
-                        # Apply the workaround to electricity IDs < 60000000 only.
-                        # This value is just a wild guess though, based on serial
-                        # numbers of "G2" devices published by users.
-                        # G2 devices use a different MCU, so they're likely running
-                        # different firmware, and thus there's a good chance all
-                        # earlier devices have this bug while all G2 devices don't.
-                        dzg_workaround = int(value[8:12]) < 6000
-                    elif dzg_workaround and name == "1-0:16.7.0*255" and value < 0 and len(item.value) >= 6:
+                        dzg_workaround |= 1
+                    elif status & 0xFFE009FF == 0x104:
+                        dzg_workaround |= 2
+                    elif dzg_workaround == 3 and name == "1-0:16.7.0*255" and value < 0 and len(item.value) >= 6:
                         bits = item.value[5].bits
                         if len(bits) in (8, 16, 24):
                             obj["value"] = bits.uintbe
