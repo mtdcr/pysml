@@ -296,23 +296,24 @@ class SmlListEntry(SmlSequence):
         if unit:
             self['unit'] = SmlUnit.create(unit)
 
-        self.scale_value()
-        value = self["value"]
+        if "value" in self:
+            self.scale_value()
+            value = self["value"]
 
-        # Electricity ID
-        if name in (b'\x01\x00\x00\x00\x09\xff', b'\x01\x00\x60\x01\x00\xff') and \
-           isinstance(value, bytes) and len(value) > 0:
-            self['value'] = self.decode_server_id(self['value'])
+            # Electricity ID
+            if name in (b'\x01\x00\x00\x00\x09\xff', b'\x01\x00\x60\x01\x00\xff') and \
+               isinstance(value, bytes) and len(value) > 0:
+                self['value'] = self.decode_server_id(self['value'])
 
-        # Manufacturer ID
-        elif name == b'\x81\x81\xc7\x82\x03\xff' and \
-             isinstance(value, bytes) and len(value) == 3:
-            self['value'] = self['value'].decode('latin1')
+            # Manufacturer ID
+            elif name == b'\x81\x81\xc7\x82\x03\xff' and \
+                 isinstance(value, bytes) and len(value) == 3:
+                self['value'] = self['value'].decode('latin1')
 
-        # Public Key
-        elif name == b'\x81\x81\xc7\x82\x05\xff' and \
-             isinstance(value, bytes):
-            self['value'] = self['value'].hex()
+            # Public Key
+            elif name == b'\x81\x81\xc7\x82\x05\xff' and \
+                 isinstance(value, bytes):
+                self['value'] = self['value'].hex()
 
     def scale_value(self):
         scaler = self.get('scaler')
