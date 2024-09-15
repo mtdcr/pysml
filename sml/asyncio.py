@@ -165,7 +165,8 @@ class SmlHttpProtocol(SmlBase):
         self._task = None
 
     async def _poll(self):
-        async with aiohttp.ClientSession(trust_env=True) as session:
+        timeout = aiohttp.ClientTimeout(total=5)
+        async with aiohttp.ClientSession(trust_env=True, timeout=timeout) as session:
             while not self._task.done():
                 async with session.get(self._url) as resp:
                     data = await resp.read()
