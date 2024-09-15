@@ -173,7 +173,7 @@ class SmlHttpProtocol(SmlBase):
                     res = self.parse_frame(data)
                     end = res.pop(0)
                     if not res:
-                        return
+                        continue
 
                     for msg in res[0]:
                         body = msg.get('messageBody')
