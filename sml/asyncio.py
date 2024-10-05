@@ -173,13 +173,11 @@ class SmlHttpProtocol(SmlBase):
 
                     res = self.parse_frame(data)
                     end = res.pop(0)
-                    if not res:
-                        continue
-
-                    for msg in res[0]:
-                        body = msg.get('messageBody')
-                        if body:
-                            self._dispatch(body)
+                    if res:
+                        for msg in res[0]:
+                            body = msg.get('messageBody')
+                            if body:
+                                self._dispatch(body)
 
                 await asyncio.sleep(self._poll_interval)
 
