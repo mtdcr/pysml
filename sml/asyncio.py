@@ -86,7 +86,6 @@ class SmlSerialProtocol(SmlBase, asyncio.Protocol):
 
     def connection_lost(self, exc: Optional[Exception]):
         logger.debug('port closed')
-        self._transport = None
         if self._running and not self._lock.locked():
             asyncio.ensure_future(self._reconnect(), loop=self._loop)
 
