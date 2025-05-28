@@ -27,9 +27,8 @@ from typing import Optional
 from urllib.parse import urlparse
 
 import aiohttp
-from async_timeout import timeout
 from serial import SerialException
-from serial_asyncio import create_serial_connection
+from serial_asyncio_fast import create_serial_connection
 
 from . import SmlBase, SmlSequence
 
@@ -110,7 +109,7 @@ class SmlSerialProtocol(SmlBase, asyncio.Protocol):
             await self._disconnect()
             await asyncio.sleep(delay)
             try:
-                async with timeout(5):
+                async with asyncio.timeout(5):
                     self._transport, _ = await self._create_connection()
             except (BrokenPipeError, ConnectionRefusedError,
                     SerialException, asyncio.TimeoutError) as exc:
