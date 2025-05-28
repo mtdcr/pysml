@@ -13,10 +13,9 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = "^3.7"
-async-timeout = ">=4.0"
+python = "^3.11"
 bitstring = ">=3.1"
-pyserial-asyncio = ">=0.6"
+pyserial-asyncio-fast = ">=0.16"
 aiohttp = "^3.8.4"
 
 [build-system]

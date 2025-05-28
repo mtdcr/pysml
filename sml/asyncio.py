@@ -27,9 +27,8 @@ from typing import Optional
 from urllib.parse import urlparse
 
 import aiohttp
-from async_timeout import timeout
 from serial import SerialException
-from serial_asyncio import create_serial_connection
+from serial_asyncio_fast import create_serial_connection
 
 from . import SmlBase, SmlSequence
 
@@ -48,7 +47,7 @@ class SmlSerialProtocol(SmlBase, asyncio.Protocol):
         self._transport = None
         self._loop = None
         self._running = False
-        self._buf = b''
+        self._buf = b""
         self._lock = None
         self._last_update = 0
         self._timeout_delay = wait_time
@@ -76,7 +75,7 @@ class SmlSerialProtocol(SmlBase, asyncio.Protocol):
                 break
 
             for msg in res[0]:
-                body = msg.get('messageBody')
+                body = msg.get("messageBody")
                 if body:
                     self._dispatch(body)
 
@@ -85,22 +84,22 @@ class SmlSerialProtocol(SmlBase, asyncio.Protocol):
         self._delay_reading(delay)
 
     def connection_lost(self, exc: Optional[Exception]):
-        logger.debug('port closed')
+        logger.debug("port closed")
         self._transport = None
         if self._running and not self._lock.locked():
             asyncio.ensure_future(self._reconnect(), loop=self._loop)
 
     async def _create_connection(self):
-        if self._url.scheme == 'socket':
+        if self._url.scheme == "socket":
             kwargs = {
-                'host': self._url.hostname,
-                'port': self._url.port,
+                "host": self._url.hostname,
+                "port": self._url.port,
             }
             coro = self._loop.create_connection(lambda: self, **kwargs)
         else:
             kwargs = {
-                'url': self._url.geturl(),
-                'baudrate': self._BAUD_RATE,
+                "url": self._url.geturl(),
+                "baudrate": self._BAUD_RATE,
             }
             coro = create_serial_connection(self._loop, lambda: self, **kwargs)
         return await coro
@@ -110,14 +109,18 @@ class SmlSerialProtocol(SmlBase, asyncio.Protocol):
             await self._disconnect()
             await asyncio.sleep(delay)
             try:
-                async with timeout(5):
+                async with asyncio.timeout(5):
                     self._transport, _ = await self._create_connection()
-            except (BrokenPipeError, ConnectionRefusedError,
-                    SerialException, asyncio.TimeoutError) as exc:
+            except (
+                BrokenPipeError,
+                ConnectionRefusedError,
+                SerialException,
+                asyncio.TimeoutError,
+            ) as exc:
                 logger.warning(exc)
                 asyncio.ensure_future(self._reconnect(), loop=self._loop)
             else:
-                logger.info('Connected to %s', self._url.geturl())
+                logger.info("Connected to %s", self._url.geturl())
                 if self._timeout_delay:
                     self._last_update = time.time()
                     self._watchdog = asyncio.create_task(self._timeout())
@@ -150,7 +153,7 @@ class SmlSerialProtocol(SmlBase, asyncio.Protocol):
                 if last_update != self._last_update:
                     continue
             logger.warning(
-                'Timeout while waiting for meter data. Please check reading device. Restarting edl21'
+                "Timeout while waiting for meter data. Please check reading device. Restarting edl21"
             )
             self.connection_lost(TimeoutError())
             return
@@ -175,7 +178,7 @@ class SmlHttpProtocol(SmlBase):
                     end = res.pop(0)
                     if res:
                         for msg in res[0]:
-                            body = msg.get('messageBody')
+                            body = msg.get("messageBody")
                             if body:
                                 self._dispatch(body)
 
@@ -189,7 +192,7 @@ class SmlProtocol:
     def __init__(self, url, **kwargs):
         self._listeners = []
         self._url = urlparse(url)
-        if self._url.scheme in ('http', 'https'):
+        if self._url.scheme in ("http", "https"):
             self._impl = SmlHttpProtocol(url, self._dispatch, **kwargs)
         else:
             self._impl = SmlSerialProtocol(url, self._dispatch, **kwargs)
