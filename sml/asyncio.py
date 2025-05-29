@@ -67,14 +67,13 @@ class SmlSerialProtocol(SmlBase, asyncio.Protocol):
         self._last_update = time.time()
 
         while True:
-            res = self.parse_frame(self._buf)
-            end = res.pop(0)
+            end, frame = self.find_frame(self._buf)
             self._buf = self._buf[end:]
 
-            if not res:
+            if not frame:
                 break
 
-            for msg in res[0]:
+            for msg in frame:
                 body = msg.get('messageBody')
                 if body:
                     self._dispatch(body)
