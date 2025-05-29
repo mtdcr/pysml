@@ -29,7 +29,7 @@ import logging
 import re
 from collections import namedtuple
 from datetime import datetime, timezone
-from typing import Any, Generator, List, Optional, Tuple, Type, Union
+from typing import Generator, List, Optional, Tuple, Type, Union
 
 import bitstring
 
