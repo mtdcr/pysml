@@ -55,9 +55,11 @@ class SmlSerialProtocol(SmlBase, asyncio.Protocol):
 
     async def _resume_reading(self, delay):
         await asyncio.sleep(delay)
+        assert self._transport is not None
         self._transport.resume_reading()
 
     def _delay_reading(self, delay):
+        assert self._transport is not None
         self._transport.pause_reading()
         asyncio.ensure_future(self._resume_reading(delay), loop=self._loop)
 
@@ -84,11 +86,13 @@ class SmlSerialProtocol(SmlBase, asyncio.Protocol):
 
     def connection_lost(self, exc: Optional[Exception]):
         logger.debug('port closed')
+        assert self._lock is not None
         self._transport = None
         if self._running and not self._lock.locked():
             asyncio.ensure_future(self._reconnect(), loop=self._loop)
 
     async def _create_connection(self):
+        assert self._loop is not None
         if self._url.scheme == 'socket':
             kwargs = {
                 'host': self._url.hostname,
@@ -104,6 +108,7 @@ class SmlSerialProtocol(SmlBase, asyncio.Protocol):
         return await coro
 
     async def _reconnect(self, delay: int = 10):
+        assert self._lock is not None
         async with self._lock:
             await self._disconnect()
             await asyncio.sleep(delay)
@@ -140,6 +145,7 @@ class SmlSerialProtocol(SmlBase, asyncio.Protocol):
             self._transport = None
 
     async def _timeout(self):
+        assert self._loop is not None
         while True:
             last_update = self._last_update
             sleep_time = last_update + self._timeout_delay - time.time()
