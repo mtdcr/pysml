@@ -445,7 +445,7 @@ def options() -> dict:
         "--debug", action="store_true", help="Enable logging of debug messages"
     )
     parser.add_argument(
-        "--hass-name", help="Prefix for entitiy IDs in Home Assistant"
+        "--hass-name", help="Prefix for entity IDs in Home Assistant"
     )
     parser.add_argument(
         "--hass-birth-topic",
