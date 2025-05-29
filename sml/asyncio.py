@@ -48,7 +48,6 @@ class SmlSerialProtocol(SmlBase, asyncio.Protocol):
         self._loop = None
         self._running = False
         self._buf = b''
-        self._lock = None
         self._last_update = 0
         self._timeout_delay = wait_time
         self._watchdog = None
@@ -84,13 +83,6 @@ class SmlSerialProtocol(SmlBase, asyncio.Protocol):
 
         self._delay_reading(delay)
 
-    def connection_lost(self, exc: Optional[Exception]):
-        logger.debug('port closed')
-        assert self._lock is not None
-        self._transport = None
-        if self._running and not self._lock.locked():
-            asyncio.ensure_future(self._reconnect(), loop=self._loop)
-
     async def _create_connection(self):
         assert self._loop is not None
         if self._url.scheme == 'socket':
@@ -108,22 +100,20 @@ class SmlSerialProtocol(SmlBase, asyncio.Protocol):
         return await coro
 
     async def _reconnect(self, delay: int = 10):
-        assert self._lock is not None
-        async with self._lock:
-            await self._disconnect()
-            await asyncio.sleep(delay)
-            try:
-                async with asyncio.timeout(5):
-                    self._transport, _ = await self._create_connection()
-            except (BrokenPipeError, ConnectionRefusedError,
-                    SerialException, asyncio.TimeoutError) as exc:
-                logger.warning(exc)
-                asyncio.ensure_future(self._reconnect(), loop=self._loop)
-            else:
-                logger.info('Connected to %s', self._url.geturl())
-                if self._timeout_delay:
-                    self._last_update = time.time()
-                    self._watchdog = asyncio.create_task(self._timeout())
+        await self._disconnect()
+        await asyncio.sleep(delay)
+        try:
+            async with asyncio.timeout(5):
+                self._transport, _ = await self._create_connection()
+        except (BrokenPipeError, ConnectionRefusedError,
+                SerialException, asyncio.TimeoutError) as exc:
+            logger.warning(exc)
+            asyncio.ensure_future(self._reconnect(), loop=self._loop)
+        else:
+            logger.info('Connected to %s', self._url.geturl())
+            if self._timeout_delay:
+                self._last_update = time.time()
+                self._watchdog = asyncio.create_task(self._timeout())
 
     async def connect(self, loop=None):
         if self._running:
@@ -133,7 +123,6 @@ class SmlSerialProtocol(SmlBase, asyncio.Protocol):
             loop = asyncio.get_event_loop()
 
         self._loop = loop
-        self._lock = asyncio.Lock()
         self._running = True
         await self._reconnect(delay=0)
 
@@ -156,8 +145,8 @@ class SmlSerialProtocol(SmlBase, asyncio.Protocol):
             logger.warning(
                 'Timeout while waiting for meter data. Please check reading device. Restarting edl21'
             )
-            self.connection_lost(TimeoutError())
-            return
+            asyncio.ensure_future(self._reconnect(), loop=self._loop)
+            break
 
 
 class SmlHttpProtocol(SmlBase):
