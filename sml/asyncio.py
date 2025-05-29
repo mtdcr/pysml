@@ -164,19 +164,26 @@ class SmlHttpProtocol(SmlBase):
         self._task = None
 
     async def _poll(self):
+        assert self._task is not None
         timeout = aiohttp.ClientTimeout(total=5)
         async with aiohttp.ClientSession(trust_env=True, timeout=timeout) as session:
             while not self._task.done():
-                async with session.get(self._url) as resp:
-                    data = await resp.read()
-
-                    res = self.parse_frame(data)
-                    end = res.pop(0)
-                    if res:
-                        for msg in res[0]:
-                            body = msg.get('messageBody')
-                            if body:
-                                self._dispatch(body)
+                try:
+                    resp = await session.get(self._url)
+                except (aiohttp.ClientError, TimeoutError) as e:
+                    logger.debug('Failed to get response', e)
+                else:
+                    try:
+                        data = await resp.read()
+                    except (aiohttp.ClientError, TimeoutError) as e:
+                        logger.debug('Failed to read data', e)
+                    else:
+                        _, frame = self.find_frame(data)
+                        if frame:
+                            for msg in frame:
+                                body = msg.get('messageBody')
+                                if body:
+                                    self._dispatch(body)
 
                 await asyncio.sleep(self._poll_interval)
 
