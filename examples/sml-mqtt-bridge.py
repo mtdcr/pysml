@@ -326,7 +326,7 @@ class SmlMqttBridge(MqttBridge):
             device["manufacturer"] = obj["value"]
         else:
             parts = device_id.split()
-            if len(parts) == 4 and len(parts[1] == 3):
+            if len(parts) == 4 and len(parts[1]) == 3:
                 device["manufacturer"] = parts[1]
 
         # https://www.home-assistant.io/integrations/sensor.mqtt/
